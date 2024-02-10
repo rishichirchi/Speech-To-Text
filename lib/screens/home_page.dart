@@ -12,33 +12,38 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _speechToText = SpeechToText();
+  final SpeechToText _speechToText = SpeechToText();
   var _speechEnabled = false;
-  String _lastWords = '';
+  String _wordsSpoken = '';
+  double _confidenceLevel = 0;
 
   @override
   void initState() {
     super.initState();
+    _initSpeech();
   }
 
-  void _initSpeech() async {
+  Future<void> _initSpeech() async {
     _speechEnabled = await _speechToText.initialize();
     setState(() {});
   }
 
-  void _startListening() async {
+  Future<void> _startListening() async {
     await _speechToText.listen(onResult: _onSpeechResult);
-    setState(() {});
+    setState(() {
+      _confidenceLevel = 0;
+    });
   }
 
-  void _stopListening() async {
+  Future<void> _stopListening() async {
     await _speechToText.stop();
     setState(() {});
   }
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     setState(() {
-      _lastWords = result.recognizedWords;
+      _wordsSpoken = "${result.recognizedWords}";
+      _confidenceLevel = result.confidence;
     });
   }
 
@@ -55,22 +60,41 @@ class _HomePageState extends State<HomePage> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Container(
-                child: const Text(
-                  "Press the button to start speaking",
+                child: Text(
+                  _speechToText.isListening
+                      ? "Listening....."
+                      : _speechEnabled
+                          ? "Press the button to start speaking"
+                          : "Speech not available",
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _wordsSpoken,
+                  style: const TextStyle(fontSize: 25),
+                ),
+              ),
+            ),
+            if (_speechToText.isNotListening && _confidenceLevel > 0)
+              Text(
+                'Confidence Level: ${(_confidenceLevel * 100).toStringAsFixed(1)}',
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w200),
+              ),
+            const SizedBox(height: 80,)
           ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if(!_speechEnabled){
-            
-          }
-        },
-        child: const Icon(Icons.mic),
+        onPressed: _speechToText.isListening ? _stopListening : _startListening,
+        child: _speechEnabled && _speechToText.isListening
+            ? const Icon(Icons.mic)
+            : const Icon(Icons.mic_none),
       ),
     );
   }
